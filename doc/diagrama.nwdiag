@@ -1,0 +1,24 @@
+nwdiag {
+  internet [shape=cloud];
+  internet -- router;
+
+  network dmz {
+    address = "10.0.1.0/24"
+    router [address = "10.0.1.2"];
+    jump [address = "10.0.1.3"];
+    mydb-broker [address = "10.0.1.4"];
+  }
+
+  network srv {
+    address = "10.0.2.0/24"
+    router [address = "10.0.2.2"];
+    mydb-auth [address = "10.0.2.3"];
+    mydb-doc [address = "10.0.2.4"];
+  }
+
+  network dev {
+    address = "10.0.3.0/24"
+    router [address = "10.0.3.2"];
+    work [address = "10.0.3.3"];
+  }
+}
