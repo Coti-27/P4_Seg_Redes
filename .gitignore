@@ -1,7 +1,6 @@
 # Carpeta de certificados generados
 certs/
 
-# Archivos sueltos que hayan quedado en la raíz por error
 *.pem
 *.crt
 *.csr
