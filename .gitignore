@@ -1,0 +1,15 @@
+# Carpeta de certificados generados
+certs/
+
+# Archivos sueltos que hayan quedado en la raíz por error
+*.pem
+*.crt
+*.csr
+*.cnf
+*.srl
+
+# Binarios de Go y archivos temporales
+src/mydb-auth
+src/mydb-doc
+src/mydb-broker
+*~
