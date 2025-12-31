@@ -1,6 +1,6 @@
 module github.com/networks-security2526/lab3-base
 
-go 1.23.0
+go 1.24.0
 
 toolchain go1.24.9
 
@@ -30,7 +30,7 @@ require (
 	github.com/ugorji/go/codec v1.3.0 // indirect
 	go.uber.org/mock v0.5.0 // indirect
 	golang.org/x/arch v0.20.0 // indirect
-	golang.org/x/crypto v0.40.0 // indirect
+	golang.org/x/crypto v0.40.0 // direct
 	golang.org/x/mod v0.25.0 // indirect
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect

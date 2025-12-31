@@ -9,49 +9,32 @@ NET_DEV = 10.0.3.0/24
 containers: build network
 	@echo "=== Lanzando nodo Router ==="
 	docker run --privileged --rm -ti -d --name router --hostname router midebian-router
-	# Conectar el router a las 3 redes con la IP .2 (Gateways)
 	docker network connect --ip 10.0.1.2 dmz router
 	docker network connect --ip 10.0.2.2 srv router
 	docker network connect --ip 10.0.3.2 dev router
 
 	@echo "=== Lanzando nodos de Salto (Jump/Work) ==="
-	docker run --privileged --rm -ti -d \
-		--name jump --hostname jump --ip 10.0.1.3 --network dmz midebian-jump
-
-	docker run --privileged --rm -ti -d \
-		--name work --hostname work --ip 10.0.3.3 --network dev midebian-work
+	docker run --privileged --rm -ti -d --name jump --hostname jump --ip 10.0.1.3 --network dmz midebian-jump
+	docker run --privileged --rm -ti -d --name work --hostname work --ip 10.0.3.3 --network dev midebian-work
 	
-	@echo "=== Lanzando servicios de Base de Datos (Go) ==="
-	docker run --privileged --rm -ti -d \
-		--name mydb-auth --hostname mydb-auth --ip 10.0.2.3 --network srv \
-		-v $(PWD)/certs:/certs midebian-mydb
-	
-	docker run --privileged --rm -ti -d \
-		--name mydb-doc --hostname mydb-doc --ip 10.0.2.4 --network srv \
-		-v $(PWD)/certs:/certs midebian-mydb
+	@echo "=== Lanzando servicios de Base de Datos (Distribuidos) ==="
+	docker run --privileged --rm -ti -d --name mydb-auth --hostname mydb-auth --ip 10.0.2.3 --network srv -v $${PWD}/certs:/certs midebian-mydb mydb-auth
+	docker run --privileged --rm -ti -d --name mydb-doc --hostname mydb-doc --ip 10.0.2.4 --network srv -v $${PWD}/certs:/certs midebian-mydb mydb-doc
+	docker run --privileged --rm -ti -d --name mydb-broker --hostname mydb-broker --ip 10.0.1.4 --network dmz -v $${PWD}/certs:/certs midebian-mydb mydb-broker
 
-	docker run --privileged --rm -ti -d \
-		--name mydb-broker --hostname mydb-broker --ip 10.0.1.4 --network dmz \
-		-v $(PWD)/certs:/certs midebian-mydb
+	@echo "=== Esperando estabilización de red... ==="
+	sleep 2
 
-	@echo "=== Configurando rutas estáticas y Forwarding ==="
-	# 1. Habilitar Forwarding en el router
-	docker exec router sysctl -w net.ipv4.ip_forward=1
-	
-	# 2. Rutas de 'work' hacia las otras redes
+	@echo "=== Configurando rutas estáticas adicionales ==="
+	# Rutas necesarias para que los paquetes sepan volver por el router
 	docker exec work ip route add 10.0.1.0/24 via 10.0.3.2 || true
 	docker exec work ip route add 10.0.2.0/24 via 10.0.3.2 || true
-
-	# 3. Rutas de 'auth' y 'doc' hacia la red de personal (work)
 	docker exec mydb-auth ip route add 10.0.3.0/24 via 10.0.2.2 || true
 	docker exec mydb-doc ip route add 10.0.3.0/24 via 10.0.2.2 || true
-	
-	# 4. Rutas de 'broker' y 'jump' hacia las otras redes
-	docker exec mydb-broker ip route add 10.0.2.0/24 via 10.0.1.2 || true
 	docker exec mydb-broker ip route add 10.0.3.0/24 via 10.0.1.2 || true
 	docker exec jump ip route add 10.0.3.0/24 via 10.0.1.2 || true
 
-# Generar certificados TLS (delegado al script corregido)
+# Generar certificados TLS
 certs:
 	@echo "=== Generando certificados TLS mediante script ==="
 	bash gen_certs.sh

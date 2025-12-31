@@ -1,27 +1,27 @@
 #!/bin/bash
 
-# Habilitar el reenvío de paquetes (Forwarding) - Crucial para un router
+# 1. Habilitar el reenvío de paquetes
 sysctl -w net.ipv4.ip_forward=1
 
-# Limpiar reglas previas
+# 2. Desactivar el filtro de ruta inversa (Evita que el router descarte paquetes asimétricos)
+sysctl -w net.ipv4.conf.all.rp_filter=0
+sysctl -w net.ipv4.conf.default.rp_filter=0
+
+# 3. Limpiar reglas
 iptables -F
 iptables -t nat -F
 
-# Políticas por defecto (Fase 1: Permitimos para configurar, endureceremos en Fase 4)
+# 4. Políticas por defecto
 iptables -P INPUT ACCEPT
 iptables -P FORWARD ACCEPT
 iptables -P OUTPUT ACCEPT
 
-# NAT/Masquerade: Permite que los nodos de las redes internas (srv, dev, dmz)
+# 5. NAT: Crucial para que los paquetes TCP no se pierdan entre subredes Docker
+iptables -t nat -A POSTROUTING -j MASQUERADE
 
-iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-
-# Iniciar servicios necesarios
 service rsyslog start
+echo "Router configurado con Forwarding y Masquerade..."
 
-echo "Router configurado y funcionando..."
-
-# Mantener el contenedor ejecutándose
 if [ -z "$1" ]; then
     exec /bin/bash
 else

@@ -1,22 +1,36 @@
 #!/bin/bash
 
-iptables -P INPUT DROP
-iptables -P FORWARD DROP
-iptables -P OUTPUT ACCEPT
+# --- Configuración de Red Dinámica ---
+IP_ADDR=$(hostname -I | awk '{print $1}')
+GATEWAY=$(echo $IP_ADDR | cut -d. -f1-3).2
+
+# Forzamos la desactivación del filtro de ruta inversa
+sysctl -w net.ipv4.conf.all.rp_filter=0
+sysctl -w net.ipv4.conf.eth0.rp_filter=0
+
+ip route del default 2>/dev/null || true
+ip route add default via $GATEWAY
+
+# --- Configuración de Firewall (IPTABLES) ---
+iptables -F
+
+# REGLA ORO: Permitir tráfico de conexiones ya establecidas (evita el colgado del curl)
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 iptables -A INPUT -i lo -j ACCEPT
 iptables -A INPUT -p icmp -j ACCEPT
+iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
 
-iptables -A INPUT -p tcp --dport 22 -s 10.0.1.3 -j ACCEPT
-
-ip route del default
-ip route add default via 10.0.3.2 dev eth0
+# Aplicar política DROP al final
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
 
 service ssh start
 service rsyslog start
 
-if [ -z "$@" ]; then
+if [ -z "$1" ]; then
     exec /bin/bash
 else
-    exec $@
+    exec "$@"
 fi
