@@ -14,15 +14,27 @@ containers: build network
 
 	@echo "=== Lanzando nodos de Salto (Jump/Work) ==="
 	docker run --privileged --rm -ti -d --name jump --hostname jump --ip 10.0.1.3 --network dmz midebian-jump
-	docker run --privileged --rm -ti -d --name work --hostname work --ip 10.0.3.3 --network dev midebian-work
+	
+	# Inyectamos la llave privada del operador en work para permitir saltos posteriores
+	docker run --privileged --rm -ti -d --name work --hostname work --ip 10.0.3.3 --network dev \
+		-v $${PWD}/op_key:/home/op/.ssh/id_rsa midebian-work
 	
 	@echo "=== Lanzando servicios de Base de Datos (Distribuidos) ==="
-	docker run --privileged --rm -ti -d --name mydb-auth --hostname mydb-auth --ip 10.0.2.3 --network srv -v $${PWD}/certs:/certs midebian-mydb mydb-auth
-	docker run --privileged --rm -ti -d --name mydb-doc --hostname mydb-doc --ip 10.0.2.4 --network srv -v $${PWD}/certs:/certs midebian-mydb mydb-doc
-	docker run --privileged --rm -ti -d --name mydb-broker --hostname mydb-broker --ip 10.0.1.4 --network dmz -v $${PWD}/certs:/certs midebian-mydb mydb-broker
+	# Se añade el montaje de op_key.pub para que el entrypoint lo instale en authorized_keys
+	docker run --privileged --rm -ti -d --name mydb-auth --hostname mydb-auth --ip 10.0.2.3 --network srv \
+		-v $${PWD}/certs:/certs -v $${PWD}/op_key.pub:/certs/op_key.pub midebian-mydb mydb-auth
+	docker run --privileged --rm -ti -d --name mydb-doc --hostname mydb-doc --ip 10.0.2.4 --network srv \
+		-v $${PWD}/certs:/certs -v $${PWD}/op_key.pub:/certs/op_key.pub midebian-mydb mydb-doc
+	docker run --privileged --rm -ti -d --name mydb-broker --hostname mydb-broker --ip 10.0.1.4 --network dmz \
+		-v $${PWD}/certs:/certs -v $${PWD}/op_key.pub:/certs/op_key.pub midebian-mydb mydb-broker
 
-	@echo "=== Configurando rutas y estabilidad de red ==="
+	@echo "=== Configurando rutas y seguridad de identidades ==="
 	sleep 2
+	# Ajuste de permisos para la llave privada del operador
+	docker exec work chown op:op /home/op/.ssh/id_rsa
+	docker exec work chmod 600 /home/op/.ssh/id_rsa
+
+	# Rutas de red para conectividad entre subredes
 	docker exec work ip route add 10.0.1.0/24 via 10.0.3.2 || true
 	docker exec work ip route add 10.0.2.0/24 via 10.0.3.2 || true
 	docker exec mydb-auth ip route add 10.0.3.0/24 via 10.0.2.2 || true
