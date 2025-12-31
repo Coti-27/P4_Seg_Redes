@@ -8,8 +8,7 @@ NET_DEV = 10.0.3.0/24
 # Lanzar todos los contenedores necesarios
 containers: build network
 	@echo "=== Lanzando nodo Router ==="
-	docker run --privileged --rm -ti -d --name router --hostname router midebian-router
-	docker network connect --ip 10.0.1.2 dmz router
+	docker run --privileged --rm -ti -d --name router --hostname router --network dmz --ip 10.0.1.2 midebian-router
 	docker network connect --ip 10.0.2.2 srv router
 	docker network connect --ip 10.0.3.2 dev router
 
@@ -22,11 +21,8 @@ containers: build network
 	docker run --privileged --rm -ti -d --name mydb-doc --hostname mydb-doc --ip 10.0.2.4 --network srv -v $${PWD}/certs:/certs midebian-mydb mydb-doc
 	docker run --privileged --rm -ti -d --name mydb-broker --hostname mydb-broker --ip 10.0.1.4 --network dmz -v $${PWD}/certs:/certs midebian-mydb mydb-broker
 
-	@echo "=== Esperando estabilización de red... ==="
+	@echo "=== Configurando rutas y estabilidad de red ==="
 	sleep 2
-
-	@echo "=== Configurando rutas estáticas adicionales ==="
-	# Rutas necesarias para que los paquetes sepan volver por el router
 	docker exec work ip route add 10.0.1.0/24 via 10.0.3.2 || true
 	docker exec work ip route add 10.0.2.0/24 via 10.0.3.2 || true
 	docker exec mydb-auth ip route add 10.0.3.0/24 via 10.0.2.2 || true

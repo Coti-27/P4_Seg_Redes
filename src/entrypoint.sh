@@ -14,7 +14,7 @@ ip route add default via $GATEWAY
 # --- Configuración de Firewall (IPTABLES) ---
 iptables -F
 
-# REGLA ORO: Permitir tráfico de conexiones ya establecidas (evita el colgado del curl)
+# REGLA ORO: Permitir conexiones establecidas para evitar el colgado del handshake SSL
 iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 iptables -A INPUT -i lo -j ACCEPT

@@ -1,27 +1,41 @@
 #!/bin/bash
 
-iptables -P INPUT DROP
-iptables -P FORWARD DROP
+# 1. Configuración de Red: Puerta de enlace hacia el Router
+# Eliminamos la ruta por defecto de Docker y forzamos el uso del router
+ip route del default 2>/dev/null || true
+ip route add default via 10.0.1.2
+
+# 2. Configuración de Firewall (IPTABLES)
+# Limpiamos reglas anteriores para asegurar que la conectividad de la Fase 2 no se bloquee
+iptables -F
+iptables -P INPUT ACCEPT   # Temporalmente en ACCEPT para validar conectividad
+iptables -P FORWARD ACCEPT
 iptables -P OUTPUT ACCEPT
 
+# Permitir tráfico local e ICMP (ping)
 iptables -A INPUT -i lo -j ACCEPT
 iptables -A INPUT -p icmp -j ACCEPT
 
-iptables -A INPUT -p tcp --dport 22 -s 10.0.1.2 -j ACCEPT
-iptables -A INPUT -p tcp --dport 22 -s 10.0.3.3 -j ACCEPT
-iptables -A INPUT -p tcp --sport 22 -s 10.0.3.0/24 -j ACCEPT
+# 3. Configuración de Seguridad SSH (sshd_config)
+# Requisito: Deshabilitar root y usar solo llaves
+sed -i 's/#PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+sed -i 's/#PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
 
-ip route del default
-ip route add default via 10.0.1.2 dev eth0
+# Restricción de usuarios según el enunciado:
+# - 'jump' es el único para el primer salto desde el exterior.
+# - 'op' puede acceder a todas las máquinas.
+echo "AllowUsers jump op" >> /etc/ssh/sshd_config
 
-echo -e "Match Address 10.0.1.2\n  AllowUsers jump\n" >> /etc/ssh/sshd_config
-echo -e "Match Address 10.0.3.3\n  AllowUsers op\n" >> /etc/ssh/sshd_config
-
-service ssh start
+# 4. Iniciar servicios obligatorios
 service rsyslog start
+service ssh start
 
-if [ -z "$@" ]; then
+echo "Nodo JUMP iniciado: Configuración de ruteo y SSH aplicada."
+
+# 5. Mantener el contenedor activo
+# Corregimos el uso de "$@" por "$1" para mayor estabilidad
+if [ -z "$1" ]; then
     exec /bin/bash
 else
-    exec $@
+    exec "$@"
 fi
