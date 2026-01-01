@@ -68,3 +68,6 @@ remove:
 clean:
 	find . -name "*~" -delete
 	rm -rf certs/
+
+run-tests:
+	bash run-tests.sh
