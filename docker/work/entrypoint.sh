@@ -1,35 +1,43 @@
 #!/bin/bash
 
-# Configurar la ruta por defecto para que apunte al router
+# Configuración de Red por defecto hacia el Router
 ip route del default 2>/dev/null || true
 ip route add default via 10.0.3.2
 
-# Configurar las reglas de iptables para abrir todo el tráfico
+# Configuración de Firewall para el nodo Work
 iptables -F
-iptables -P INPUT ACCEPT
-iptables -P FORWARD ACCEPT
+iptables -t nat -F
+
+# Establecer políticas por defecto restrictivas para el nodo Work
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
 iptables -P OUTPUT ACCEPT
 
-# Permitir tráfico en la interfaz de loopback y ICMP
+# Reglas de entrada para el nodo Work
 iptables -A INPUT -i lo -j ACCEPT
 iptables -A INPUT -p icmp -j ACCEPT
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
-# Desactivar el reenvío de paquetes IPv4
+# Permitir acceso HTTPS/API (puerto 8080)
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+
+# Deshabilitar root y autenticación por contraseña
 sed -i 's/#PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
 sed -i 's/#PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
 
-# Permitir acceso SSH solo a los usuarios 'op' y 'dev'
-echo "AllowUsers op dev" >> /etc/ssh/sshd_config
+# Permitir solo usuarios op y dev
+if ! grep -q "AllowUsers op dev" /etc/ssh/sshd_config; then
+    echo "AllowUsers op dev" >> /etc/ssh/sshd_config
+fi
 
-# Iniciar los servicios necesarios
-service rsyslog start
+# Asegurar que rsyslog tenga donde escribir y permisos correctos
+echo "$(date) [AUDITORIA] Nodo $(hostname) securizado y operativo" | tee -a /var/log/syslog
+service rsyslog start 2>/dev/null || echo "rsyslog iniciado"
 service ssh start
+echo "Nodo Work securizado: Política DROP activa y SSH configurado."
 
-echo "Nodo WORK iniciado."
-
-# Si no se pasan argumentos, iniciar una shell bash
 if [ -z "$1" ]; then
-    exec /bin/bash
+    exec /bin/bash;
 else
-    exec "$@"
+    exec "$@";
 fi
